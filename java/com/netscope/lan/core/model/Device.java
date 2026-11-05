@@ -18,6 +18,7 @@ public final class Device {
     public String server = "";
     public String httpTitle = "";
     public String tls = "";
+    public String webAudit = "";
     public final Set<String> services = new LinkedHashSet<>();
     public long latencyMs = -1;
     public boolean gateway;

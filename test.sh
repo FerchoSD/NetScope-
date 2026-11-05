@@ -31,4 +31,7 @@ java -cp "$OUT:$JUNIT:$HAMCREST:$ANDROID_JAR" org.junit.runner.JUnitCore \
     com.netscope.lan.test.ScanDiffEngineTest \
     com.netscope.lan.test.PortScannerLocalTest \
     com.netscope.lan.test.WifiScannerTest \
-    com.netscope.lan.test.HostClassifierTest
+    com.netscope.lan.test.HostClassifierTest \
+    com.netscope.lan.test.DistanceEstimatorTest \
+    com.netscope.lan.test.HttpAuditTest \
+    com.netscope.lan.test.WebContentScannerTest

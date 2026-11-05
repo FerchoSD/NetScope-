@@ -34,12 +34,12 @@ public class CsvExporterTest {
         String csv = CsvExporter.export(report);
         String[] lines = csv.split("\n");
         assertEquals(3, lines.length);
-        assertTrue(lines[0].startsWith("\uFEFFfecha,ssid,subred,ip,nombre,fabricante,tipo,latencia_ms,puerto,estado,servicio,banner,riesgo,so,servidor,titulo_http,tls,servicios"));
+        assertTrue(lines[0].startsWith("\uFEFFfecha,ssid,subred,ip,nombre,fabricante,tipo,latencia_ms,puerto,estado,servicio,banner,riesgo,so,servidor,titulo_http,tls,servicios,auditoria_web"));
         assertTrue(lines[1].contains("192.168.1.1"));
         assertTrue(lines[1].contains(",80,abierto,HTTP,nginx,medio"));
-        assertTrue(lines[1].endsWith(",Firmware embebido,,,,HTTP HTTPS"));
+        assertTrue(lines[1].endsWith(",Firmware embebido,,,,HTTP HTTPS,"));
         assertTrue(lines[2].contains("192.168.1.20"));
-        assertEquals(18, lines[2].split(",", -1).length);
+        assertEquals(19, lines[2].split(",", -1).length);
     }
 
     @Test

@@ -72,6 +72,7 @@ public final class JsonExporter {
         sb.append(indent).append("  \"server\": \"").append(esc(device.server)).append("\",\n");
         sb.append(indent).append("  \"http_title\": \"").append(esc(device.httpTitle)).append("\",\n");
         sb.append(indent).append("  \"tls\": \"").append(esc(device.tls)).append("\",\n");
+        sb.append(indent).append("  \"web_audit\": \"").append(esc(device.webAudit)).append("\",\n");
         sb.append(indent).append("  \"services\": [");
         int s = 0;
         for (String service : device.services) {

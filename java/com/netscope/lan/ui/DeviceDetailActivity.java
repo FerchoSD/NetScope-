@@ -3,6 +3,7 @@ package com.netscope.lan.ui;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -19,7 +20,9 @@ import com.netscope.lan.core.export.JsonExporter;
 import com.netscope.lan.core.model.Device;
 import com.netscope.lan.core.model.PortResult;
 import com.netscope.lan.core.model.ScanReport;
+import com.netscope.lan.core.net.DistanceEstimator;
 import com.netscope.lan.core.net.HostClassifier;
+import com.netscope.lan.core.net.HttpAudit;
 import com.netscope.lan.core.net.ScanController;
 import com.netscope.lan.core.net.ServiceCatalog;
 import com.netscope.lan.util.Formats;
@@ -55,6 +58,7 @@ public final class DeviceDetailActivity extends Activity {
     private TextView tvDetailHostname;
     private TextView tvDetailVendor;
     private TextView tvDetailLatency;
+    private TextView tvDetailDistance;
     private TextView tvDetailSources;
     private TextView tvDetailPortSummary;
     private TextView tvDetailOs;
@@ -62,6 +66,7 @@ public final class DeviceDetailActivity extends Activity {
     private TextView tvDetailHttpTitle;
     private TextView tvDetailTls;
     private TextView tvDetailServices;
+    private TextView tvDetailWebAudit;
     private TextView tvPortStatus;
     private TextView tvOpenCount;
     private TextView tvNoPorts;
@@ -78,6 +83,7 @@ public final class DeviceDetailActivity extends Activity {
     private Button btnStopPorts;
     private Button btnRename;
     private Button btnTrust;
+    private Button btnOpenLab;
     private EditText etCustomPorts;
 
     private boolean scanning;
@@ -145,6 +151,7 @@ public final class DeviceDetailActivity extends Activity {
         tvDetailHostname = findViewById(R.id.tvDetailHostname);
         tvDetailVendor = findViewById(R.id.tvDetailVendor);
         tvDetailLatency = findViewById(R.id.tvDetailLatency);
+        tvDetailDistance = findViewById(R.id.tvDetailDistance);
         tvDetailSources = findViewById(R.id.tvDetailSources);
         tvDetailPortSummary = findViewById(R.id.tvDetailPortSummary);
         tvDetailOs = findViewById(R.id.tvDetailOs);
@@ -152,6 +159,7 @@ public final class DeviceDetailActivity extends Activity {
         tvDetailHttpTitle = findViewById(R.id.tvDetailHttpTitle);
         tvDetailTls = findViewById(R.id.tvDetailTls);
         tvDetailServices = findViewById(R.id.tvDetailServices);
+        tvDetailWebAudit = findViewById(R.id.tvDetailWebAudit);
         tvPortStatus = findViewById(R.id.tvPortStatus);
         tvOpenCount = findViewById(R.id.tvOpenCount);
         tvNoPorts = findViewById(R.id.tvNoPorts);
@@ -168,6 +176,7 @@ public final class DeviceDetailActivity extends Activity {
         btnStopPorts = findViewById(R.id.btnStopPorts);
         btnRename = findViewById(R.id.btnRename);
         btnTrust = findViewById(R.id.btnTrust);
+        btnOpenLab = findViewById(R.id.btnOpenLab);
         etCustomPorts = findViewById(R.id.etCustomPorts);
         portGrid = findViewById(R.id.portGrid);
     }
@@ -184,6 +193,9 @@ public final class DeviceDetailActivity extends Activity {
         });
         btnTrust.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { toggleTrust(); }
+        });
+        btnOpenLab.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openLab(); }
         });
         btnPresetQuick.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { startPorts(ServiceCatalog.quickPorts()); }
@@ -227,6 +239,7 @@ public final class DeviceDetailActivity extends Activity {
         tvDetailVendor.setText(device.vendor.isEmpty()
                 ? getString(R.string.vendor_unknown) : device.vendor);
         tvDetailLatency.setText(Formats.latency(device.latencyMs));
+        tvDetailDistance.setText(DistanceEstimator.proximityLabel(device.latencyMs));
         if (device.sources.isEmpty()) {
             tvDetailSources.setText(R.string.sources_none);
         } else {
@@ -251,7 +264,22 @@ public final class DeviceDetailActivity extends Activity {
             }
             tvDetailServices.setText(sb.toString());
         }
+        tvDetailWebAudit.setText(orUnknown(device.webAudit));
         btnTrust.setText(device.trusted ? R.string.trust_remove : R.string.trust_mark);
+    }
+
+    private void openLab() {
+        int port = 80;
+        for (PortResult result : device.openPorts) {
+            if (ServiceCatalog.isHttp(result.port)) {
+                port = result.port;
+                break;
+            }
+        }
+        startActivity(new Intent(this, LabActivity.class)
+                .putExtra(LabActivity.EXTRA_IP, device.ip)
+                .putExtra(LabActivity.EXTRA_PORT, port)
+                .putExtra(LabActivity.EXTRA_TLS, HttpAudit.isTlsPort(port)));
     }
 
     private String orUnknown(String value) {

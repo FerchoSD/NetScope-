@@ -65,6 +65,7 @@ public final class ScanRepository {
                 values.put("http_title", device.httpTitle);
                 values.put("tls", device.tls);
                 values.put("services", join(device.services));
+                values.put("web_audit", device.webAudit);
                 long deviceId = db.insertOrThrow("devices", null, values);
                 for (PortResult port : device.openPorts) {
                     ContentValues p = new ContentValues();
@@ -148,6 +149,7 @@ public final class ScanRepository {
                 device.server = safe(devices, "server");
                 device.httpTitle = safe(devices, "http_title");
                 device.tls = safe(devices, "tls");
+                device.webAudit = safe(devices, "web_audit");
                 for (String service : safe(devices, "services").split(",")) {
                     if (!service.trim().isEmpty()) device.services.add(service.trim());
                 }

@@ -35,6 +35,7 @@ import com.netscope.lan.core.export.JsonExporter;
 import com.netscope.lan.core.model.Device;
 import com.netscope.lan.core.model.ScanDiff;
 import com.netscope.lan.core.model.ScanReport;
+import com.netscope.lan.core.net.DistanceEstimator;
 import com.netscope.lan.core.net.NetworkInfoProvider;
 import com.netscope.lan.core.net.ScanController;
 import com.netscope.lan.core.net.ScanEngine;
@@ -229,6 +230,11 @@ public final class MainActivity extends Activity {
         findViewById(R.id.navHistory).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showPage(2); }
         });
+        findViewById(R.id.navLab).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, LabActivity.class));
+            }
+        });
         findViewById(R.id.navSettings).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showPage(3); }
         });
@@ -326,6 +332,8 @@ public final class MainActivity extends Activity {
         meta.append("canal ").append(current.channel > 0 ? String.valueOf(current.channel) : "—");
         if (!current.band.isEmpty()) meta.append(" · ").append(current.band);
         if (!current.bssid.isEmpty()) meta.append(" · ").append(current.bssid);
+        meta.append("\n").append(getString(R.string.distance)).append(": ")
+                .append(DistanceEstimator.distanceLabel(current.rssi, current.frequency));
         tvWifiCurrentMeta.setText(meta.toString());
         tvWifiCurrentSecurity.setText(current.security);
     }
@@ -337,7 +345,10 @@ public final class MainActivity extends Activity {
                 .append(" (").append(network.band.isEmpty() ? "—" : network.band).append(")\n");
         message.append(getString(R.string.wifi_security)).append(": ").append(network.security).append("\n");
         message.append("Señal: ").append(network.signalPercent).append("% ")
-                .append(WifiScanner.signalGlyph(network.signalPercent)).append("\n");
+                .append(WifiScanner.signalGlyph(network.signalPercent))
+                .append(" (").append(network.rssi).append(" dBm)\n");
+        message.append(getString(R.string.distance)).append(": ")
+                .append(DistanceEstimator.distanceLabel(network.rssi, network.frequency)).append("\n");
         message.append("Estado: ").append(network.connected ? "Conectada" : "Disponible");
         new AlertDialog.Builder(this)
                 .setTitle(network.ssid)

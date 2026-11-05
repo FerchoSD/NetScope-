@@ -8,6 +8,7 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.netscope.lan.R;
+import com.netscope.lan.core.net.DistanceEstimator;
 import com.netscope.lan.core.net.WifiScanner;
 
 import java.util.ArrayList;
@@ -50,12 +51,21 @@ public final class WifiAdapter extends BaseAdapter {
         info.append("canal ").append(network.channel > 0 ? String.valueOf(network.channel) : "—");
         if (!network.band.isEmpty()) info.append(" · ").append(network.band);
         if (!network.bssid.isEmpty()) info.append(" · ").append(network.bssid);
+        String distance = compactDistance(network);
+        if (!distance.isEmpty()) info.append(" · ").append(distance);
         if (network.connected) info.append(" · conectada");
         meta.setText(info.toString());
         signal.setText(network.signalPercent + "%");
         signal.setTextColor(signalColor(network.signalPercent));
         security.setText(network.security);
         return row;
+    }
+
+    private static String compactDistance(WifiScanner.Network network) {
+        double meters = DistanceEstimator.rssiToMeters(network.rssi, network.frequency);
+        if (meters < 0) return "";
+        if (meters > 200) return "> 200 m";
+        return DistanceEstimator.formatMeters(meters);
     }
 
     private int signalColor(int percent) {

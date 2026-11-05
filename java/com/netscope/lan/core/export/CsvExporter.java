@@ -18,7 +18,7 @@ public final class CsvExporter {
     public static String export(ScanReport report) {
         StringBuilder sb = new StringBuilder(4096);
         sb.append('\uFEFF');
-        sb.append("fecha,ssid,subred,ip,nombre,fabricante,tipo,latencia_ms,puerto,estado,servicio,banner,riesgo,so,servidor,titulo_http,tls,servicios\n");
+        sb.append("fecha,ssid,subred,ip,nombre,fabricante,tipo,latencia_ms,puerto,estado,servicio,banner,riesgo,so,servidor,titulo_http,tls,servicios,auditoria_web\n");
         String date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date(report.timestamp));
         for (Device device : report.devices) {
             List<PortResult> ports = new ArrayList<>(device.openPorts);
@@ -57,6 +57,7 @@ public final class CsvExporter {
         sb.append(',').append(csv(device.httpTitle));
         sb.append(',').append(csv(device.tls));
         sb.append(',').append(csv(joinServices(device.services)));
+        sb.append(',').append(csv(device.webAudit));
         sb.append('\n');
     }
 

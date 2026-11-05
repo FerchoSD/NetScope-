@@ -278,13 +278,14 @@ public final class ScanEngine {
 
     private void probeWebInfo() {
         List<Device> targets = new ArrayList<>();
-        List<List<PortResult>> ports = new ArrayList<>();
+        List<Integer> ports = new ArrayList<>();
         synchronized (lock) {
             for (Device device : report.devices) {
                 if (targets.size() >= 48) break;
-                if (!hasWebPort(device)) continue;
+                int port = firstWebPort(device);
+                if (port <= 0) continue;
                 targets.add(device);
-                ports.add(new ArrayList<>(device.openPorts));
+                ports.add(port);
             }
         }
         if (targets.isEmpty()) return;
@@ -294,26 +295,27 @@ public final class ScanEngine {
             t.setDaemon(true);
             return t;
         });
-        List<Future<DeviceProbe.Info>> futures = new ArrayList<>();
+        List<Future<HttpAudit.Result>> futures = new ArrayList<>();
         for (int i = 0; i < targets.size(); i++) {
             final String ip = targets.get(i).ip;
-            final List<PortResult> open = ports.get(i);
-            futures.add(probePool.submit(() -> DeviceProbe.probe(ip, open, 700)));
+            final int port = ports.get(i);
+            futures.add(probePool.submit(() -> HttpAudit.audit(ip, port, 900)));
         }
-        long deadline = System.currentTimeMillis() + 8000;
+        long deadline = System.currentTimeMillis() + 10000;
         for (int i = 0; i < targets.size(); i++) {
             if (cancelled.get() || finished.get()) break;
             Device device = targets.get(i);
             try {
                 long wait = Math.max(50, deadline - System.currentTimeMillis());
-                DeviceProbe.Info info = futures.get(i).get(wait, TimeUnit.MILLISECONDS);
-                if (info == null || !info.found()) continue;
+                HttpAudit.Result info = futures.get(i).get(wait, TimeUnit.MILLISECONDS);
+                if (info == null || !info.reachable) continue;
                 synchronized (lock) {
-                    device.httpTitle = info.httpTitle;
+                    device.httpTitle = info.title;
                     device.server = info.server;
                     device.tls = info.tls;
-                    if (device.hostname.isEmpty() && !info.httpTitle.isEmpty()) {
-                        device.hostname = deriveName(info.httpTitle);
+                    device.webAudit = info.compact();
+                    if (device.hostname.isEmpty() && !info.title.isEmpty()) {
+                        device.hostname = deriveName(info.title);
                     }
                     if (!device.sources.contains("HTTP")) device.sources.add("HTTP");
                 }
@@ -326,11 +328,16 @@ public final class ScanEngine {
         probePool = null;
     }
 
-    private static boolean hasWebPort(Device device) {
-        for (PortResult port : device.openPorts) {
-            if (ServiceCatalog.isHttp(port.port) || DeviceProbe.isTlsPort(port.port)) return true;
+    private static int firstWebPort(Device device) {
+        int[] preferred = {443, 8443, 9443, 80, 8080, 8008, 8081, 8888, 8000,
+                3000, 5000, 8090, 9000, 10000};
+        for (int port : preferred) {
+            if (device.hasOpenPort(port)) return port;
         }
-        return false;
+        for (PortResult port : device.openPorts) {
+            if (ServiceCatalog.isHttp(port.port)) return port.port;
+        }
+        return -1;
     }
 
     private static String serviceLabel(String type) {

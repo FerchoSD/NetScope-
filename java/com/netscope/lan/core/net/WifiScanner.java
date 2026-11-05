@@ -20,6 +20,7 @@ public final class WifiScanner {
         public String band = "";
         public String security = "";
         public int signalPercent;
+        public int rssi = -127;
         public boolean hidden;
         public boolean connected;
     }
@@ -89,7 +90,8 @@ public final class WifiScanner {
             network.frequency = info.getFrequency();
             network.channel = channelForFrequency(network.frequency);
             network.band = bandForFrequency(network.frequency);
-            network.signalPercent = signalPercent(info.getRssi());
+            network.rssi = info.getRssi();
+            network.signalPercent = signalPercent(network.rssi);
             network.connected = true;
             for (ScanResult result : wm.getScanResults()) {
                 if (result == null || result.BSSID == null) continue;
@@ -99,6 +101,7 @@ public final class WifiScanner {
                     network.channel = channelForFrequency(result.frequency);
                     network.band = bandForFrequency(result.frequency);
                     network.security = securityLabel(result.capabilities);
+                    network.rssi = result.level;
                     network.signalPercent = signalPercent(result.level);
                     break;
                 }
@@ -120,6 +123,7 @@ public final class WifiScanner {
         network.channel = channelForFrequency(result.frequency);
         network.band = bandForFrequency(result.frequency);
         network.security = securityLabel(result.capabilities);
+        network.rssi = result.level;
         network.signalPercent = signalPercent(result.level);
         return network;
     }

@@ -800,6 +800,21 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/navLab"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="7dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground">
+            <ImageView android:id="@+id/ivNavLab" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_nav_lab" android:contentDescription="@string/lab_title" />
+            <TextView android:id="@+id/tvNavLab" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="@string/lab_nav" android:textColor="@color/text_dim" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/navSettings"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
