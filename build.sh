@@ -87,3 +87,14 @@ apksigner verify --verbose "dist/$APK_NAME"
 aapt2 dump badging "dist/$APK_NAME" | sed -n '1,5p'
 
 echo "APK listo: $ROOT/dist/$APK_NAME"
+
+DOWNLOAD_DIR="/storage/emulated/0/Download"
+if [ -d "$DOWNLOAD_DIR" ]; then
+    if cp "$ROOT/dist/$APK_NAME" "$DOWNLOAD_DIR/$APK_NAME"; then
+        echo "APK copiado a $DOWNLOAD_DIR/$APK_NAME"
+    else
+        echo "Aviso: no se pudo copiar a $DOWNLOAD_DIR"
+    fi
+else
+    echo "Aviso: $DOWNLOAD_DIR no existe; APK solo en dist/"
+fi
