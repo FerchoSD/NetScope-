@@ -138,4 +138,43 @@
     <string name="perm_denied">Algunos permisos no se concedieron; la información mostrada puede ser limitada.</string>
     <string name="unknown_service">Servicio desconocido</string>
     <string name="cancel_requested">Cancelando escaneo…</string>
+
+    <string name="wifi_title">Redes Wi-Fi</string>
+    <string name="wifi_nav">Wi-Fi</string>
+    <string name="wifi_subtitle">SSID, BSSID, canal, seguridad y potencia de señal de las redes cercanas.</string>
+    <string name="wifi_scan">Buscar redes</string>
+    <string name="wifi_scan_hint">Pulsa Buscar redes para escanear el entorno inalámbrico.</string>
+    <string name="wifi_scanning">Solicitando escaneo…</string>
+    <string name="wifi_ready">%1$d redes encontradas</string>
+    <string name="wifi_empty">No hay redes visibles. Activa el Wi-Fi y vuelve a intentarlo.</string>
+    <string name="wifi_not_connected">Sin Wi-Fi conectado</string>
+    <string name="wifi_security">Seguridad</string>
+    <string name="wifi_disabled">El Wi-Fi está desactivado. Actívalo para escanear redes.</string>
+    <string name="wifi_scan_error">No se pudo iniciar el escaneo. Revisa los permisos de ubicación y Wi-Fi cercano.</string>
+    <string name="wifi_limitation">Android limita la frecuencia de escaneos Wi-Fi. Los datos son de solo lectura: NetScope no se conecta ni modifica redes.</string>
+
+    <string name="intel_title">Información recopilada</string>
+    <string name="intel_os">Sistema operativo</string>
+    <string name="intel_server">Servidor web</string>
+    <string name="intel_http_title">Título HTTP</string>
+    <string name="intel_tls">Certificado TLS</string>
+    <string name="intel_services">Servicios</string>
+    <string name="intel_none">Sin datos adicionales. Realiza un escaneo de puertos web para ampliar la información.</string>
+    <string name="intel_unknown">—</string>
+
+    <string name="rename_device">Editar nombre</string>
+    <string name="rename_title">Nombre personalizado</string>
+    <string name="rename_hint">Ejemplo: TV del salón</string>
+    <string name="rename_save">Guardar</string>
+    <string name="rename_clear">Quitar nombre</string>
+    <string name="renamed">Nombre actualizado</string>
+
+    <string name="trust_mark">Marcar como confiable</string>
+    <string name="trust_remove">Quitar confianza</string>
+    <string name="trust_marked">Dispositivo marcado como confiable</string>
+    <string name="trust_removed">Confianza eliminada</string>
+    <string name="trust_chip_new">NUEVO</string>
+    <string name="trust_chip_trusted">CONFIABLE</string>
+    <string name="trust_alert">Atención: %1$d dispositivo(s) nuevo(s) en la red. Revísalos y marca los tuyos como confiables: %2$s</string>
+    <string name="blocking_limitation">Bloquear o expulsar dispositivos exigiría enviar tramas de desautenticación o falsificar ARP, lo que es un ataque de denegación de servicio y no se incluye. NetScope detecta, identifica y alerta; revisa tu router para aplicar bloqueos reales.</string>
 </resources>

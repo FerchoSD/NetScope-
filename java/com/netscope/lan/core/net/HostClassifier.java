@@ -41,6 +41,26 @@ public final class HostClassifier {
         } else {
             set(d, "unknown", "Dispositivo");
         }
+        d.osGuess = guessOs(d, hint);
+    }
+
+    public static String guessOs(Device d, String hint) {
+        if (d.self) return "Android (este dispositivo)";
+        if ("router".equals(d.type)) return "Firmware embebido";
+        if (d.hasOpenPort(445) || d.hasOpenPort(135) || d.hasOpenPort(139)
+                || hint.contains("windows") || hint.contains("smb")) {
+            return "Windows (probable)";
+        }
+        if (d.hasOpenPort(548) || d.hasOpenPort(62078) || hint.contains("airplay")
+                || hint.contains("raop") || hint.contains("apple") || hint.contains("iphone")) {
+            return "Apple (probable)";
+        }
+        if (d.hasOpenPort(5555)) return "Android (probable)";
+        if (d.hasOpenPort(22) || hint.contains("linux") || hint.contains("unix")
+                || d.hasOpenPort(631)) {
+            return "Linux/Unix (probable)";
+        }
+        return "No determinado";
     }
 
     private static void set(Device d, String type, String label) {

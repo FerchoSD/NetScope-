@@ -2,13 +2,19 @@ package com.netscope.lan.ui;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
@@ -33,6 +39,7 @@ import com.netscope.lan.core.net.NetworkInfoProvider;
 import com.netscope.lan.core.net.ScanController;
 import com.netscope.lan.core.net.ScanEngine;
 import com.netscope.lan.core.net.SubnetMath;
+import com.netscope.lan.core.net.WifiScanner;
 import com.netscope.lan.util.Formats;
 import com.netscope.lan.util.PermissionHelper;
 import com.netscope.lan.util.Prefs;
@@ -49,6 +56,8 @@ public final class MainActivity extends Activity {
     private ScanRepository repository;
     private DeviceAdapter deviceAdapter;
     private HistoryAdapter historyAdapter;
+    private WifiAdapter wifiAdapter;
+    private BroadcastReceiver wifiScanReceiver;
 
     private final Map<String, Device> liveDevices = new LinkedHashMap<>();
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -57,6 +66,7 @@ public final class MainActivity extends Activity {
     };
 
     private ScrollView pageRed;
+    private View pageWifi;
     private View pageHistory;
     private ScrollView pageSettings;
     private LinearLayout devicesContainer;
@@ -80,10 +90,20 @@ public final class MainActivity extends Activity {
     private TextView tvStatTime;
     private TextView tvDeviceCount;
     private TextView tvNavRed;
+    private TextView tvNavWifi;
     private TextView tvNavHistory;
     private TextView tvNavSettings;
     private Button btnScan;
     private Button btnStop;
+    private Button btnScanWifi;
+    private ListView listWifi;
+    private View emptyWifi;
+    private TextView tvWifiStatus;
+    private TextView tvWifiCurrentSsid;
+    private TextView tvWifiCurrentMeta;
+    private TextView tvWifiCurrentSecurity;
+    private TextView tvWifiCurrentSignal;
+    private TextView tvTrustAlert;
     private Button btnExportLastHistory;
     private Button btnExportLastSettings;
     private Button btnClearHistory;
@@ -102,6 +122,7 @@ public final class MainActivity extends Activity {
 
     private ScanReport currentReport;
     private boolean scanning;
+    private final List<String> newDeviceIps = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,10 +137,12 @@ public final class MainActivity extends Activity {
         setupNavigation();
         setupActions();
         setupSettings();
+        setupWifi();
 
         loadNetworkInfo();
         renderDevices();
         loadHistory();
+        loadWifiCurrent();
 
         if (Prefs.isLegalAccepted(this)) {
             PermissionHelper.requestRuntimePermissions(this);
@@ -130,6 +153,7 @@ public final class MainActivity extends Activity {
 
     private void bindViews() {
         pageRed = findViewById(R.id.pageRed);
+        pageWifi = findViewById(R.id.pageWifi);
         pageHistory = findViewById(R.id.pageHistory);
         pageSettings = findViewById(R.id.pageSettings);
         devicesContainer = findViewById(R.id.devicesContainer);
@@ -153,10 +177,20 @@ public final class MainActivity extends Activity {
         tvStatTime = findViewById(R.id.tvStatTime);
         tvDeviceCount = findViewById(R.id.tvDeviceCount);
         tvNavRed = findViewById(R.id.tvNavRed);
+        tvNavWifi = findViewById(R.id.tvNavWifi);
         tvNavHistory = findViewById(R.id.tvNavHistory);
         tvNavSettings = findViewById(R.id.tvNavSettings);
         btnScan = findViewById(R.id.btnScan);
         btnStop = findViewById(R.id.btnStop);
+        btnScanWifi = findViewById(R.id.btnScanWifi);
+        listWifi = findViewById(R.id.listWifi);
+        emptyWifi = findViewById(R.id.emptyWifi);
+        tvWifiStatus = findViewById(R.id.tvWifiStatus);
+        tvWifiCurrentSsid = findViewById(R.id.tvWifiCurrentSsid);
+        tvWifiCurrentMeta = findViewById(R.id.tvWifiCurrentMeta);
+        tvWifiCurrentSecurity = findViewById(R.id.tvWifiCurrentSecurity);
+        tvWifiCurrentSignal = findViewById(R.id.tvWifiCurrentSignal);
+        tvTrustAlert = findViewById(R.id.tvTrustAlert);
         btnExportLastHistory = findViewById(R.id.btnExportLastHistory);
         btnExportLastSettings = findViewById(R.id.btnExportLastSettings);
         btnClearHistory = findViewById(R.id.btnClearHistory);
@@ -189,11 +223,14 @@ public final class MainActivity extends Activity {
         findViewById(R.id.navRed).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showPage(0); }
         });
-        findViewById(R.id.navHistory).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.navWifi).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showPage(1); }
         });
-        findViewById(R.id.navSettings).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.navHistory).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showPage(2); }
+        });
+        findViewById(R.id.navSettings).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { showPage(3); }
         });
         showPage(0);
     }
@@ -214,11 +251,99 @@ public final class MainActivity extends Activity {
         btnClearHistory.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { confirmClearHistory(); }
         });
-        listHistory.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
-            @Override public void onItemClick(android.widget.AdapterView<?> parent, View view, int position, long id) {
+        listHistory.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 showHistory(historyAdapter.getItem(position));
             }
         });
+    }
+
+    private void setupWifi() {
+        wifiAdapter = new WifiAdapter(this);
+        listWifi.setAdapter(wifiAdapter);
+        listWifi.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                showWifiDialog(wifiAdapter.getItem(position));
+            }
+        });
+        btnScanWifi.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { scanWifi(); }
+        });
+
+        wifiScanReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                if (WifiManager.SCAN_RESULTS_AVAILABLE_ACTION.equals(intent.getAction())) {
+                    refreshWifiResults();
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(wifiScanReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(wifiScanReceiver, filter);
+        }
+    }
+
+    private void scanWifi() {
+        if (!WifiScanner.isWifiEnabled(this)) {
+            tvWifiStatus.setText(R.string.wifi_disabled);
+            return;
+        }
+        tvWifiStatus.setText(R.string.wifi_scanning);
+        if (!WifiScanner.requestScan(this)) {
+            tvWifiStatus.setText(R.string.wifi_scan_error);
+            refreshWifiResults();
+            return;
+        }
+        ui.postDelayed(new Runnable() {
+            @Override public void run() { refreshWifiResults(); }
+        }, 1800);
+        loadWifiCurrent();
+    }
+
+    private void refreshWifiResults() {
+        List<WifiScanner.Network> networks = WifiScanner.results(this);
+        wifiAdapter.setItems(networks);
+        emptyWifi.setVisibility(networks.isEmpty() ? View.VISIBLE : View.GONE);
+        tvWifiStatus.setText(getString(R.string.wifi_ready, networks.size()));
+        loadWifiCurrent();
+    }
+
+    private void loadWifiCurrent() {
+        if (tvWifiCurrentSsid == null) return;
+        WifiScanner.Network current = WifiScanner.connected(this);
+        if (current == null || current.ssid.isEmpty()) {
+            tvWifiCurrentSsid.setText(R.string.wifi_not_connected);
+            tvWifiCurrentSignal.setText("—");
+            tvWifiCurrentMeta.setText("—");
+            tvWifiCurrentSecurity.setText("—");
+            return;
+        }
+        tvWifiCurrentSsid.setText(current.ssid);
+        tvWifiCurrentSignal.setText(current.signalPercent + "%");
+        StringBuilder meta = new StringBuilder();
+        meta.append("canal ").append(current.channel > 0 ? String.valueOf(current.channel) : "—");
+        if (!current.band.isEmpty()) meta.append(" · ").append(current.band);
+        if (!current.bssid.isEmpty()) meta.append(" · ").append(current.bssid);
+        tvWifiCurrentMeta.setText(meta.toString());
+        tvWifiCurrentSecurity.setText(current.security);
+    }
+
+    private void showWifiDialog(WifiScanner.Network network) {
+        StringBuilder message = new StringBuilder();
+        message.append("BSSID: ").append(network.bssid.isEmpty() ? "—" : network.bssid).append("\n");
+        message.append("Canal: ").append(network.channel > 0 ? String.valueOf(network.channel) : "—")
+                .append(" (").append(network.band.isEmpty() ? "—" : network.band).append(")\n");
+        message.append(getString(R.string.wifi_security)).append(": ").append(network.security).append("\n");
+        message.append("Señal: ").append(network.signalPercent).append("% ")
+                .append(WifiScanner.signalGlyph(network.signalPercent)).append("\n");
+        message.append("Estado: ").append(network.connected ? "Conectada" : "Disponible");
+        new AlertDialog.Builder(this)
+                .setTitle(network.ssid)
+                .setMessage(message.toString())
+                .setPositiveButton(R.string.close, null)
+                .show();
     }
 
     private void setupSettings() {
@@ -355,6 +480,8 @@ public final class MainActivity extends Activity {
         scanning = true;
         currentReport = null;
         liveDevices.clear();
+        newDeviceIps.clear();
+        tvTrustAlert.setVisibility(View.GONE);
         renderDevices();
         updateLiveStats();
         progressScan.setProgress(0);
@@ -396,6 +523,7 @@ public final class MainActivity extends Activity {
         scanning = false;
         currentReport = report;
         liveDevices.clear();
+        detectNewDevices(report);
         for (Device device : report.devices) liveDevices.put(device.ip, device);
         renderDevices();
         updateStats(report);
@@ -404,6 +532,7 @@ public final class MainActivity extends Activity {
         progressScan.setProgress(100);
         setScanningUi(false);
         loadNetworkInfo();
+        updateTrustAlert();
 
         if (report.cancelled) {
             tvStage.setText(R.string.scan_cancelled_short);
@@ -413,6 +542,33 @@ public final class MainActivity extends Activity {
             toast(getString(R.string.scan_complete));
         }
         saveReport(report);
+    }
+
+    private void detectNewDevices(ScanReport report) {
+        newDeviceIps.clear();
+        List<String> ips = new ArrayList<>();
+        for (Device device : report.devices) {
+            boolean known = Prefs.isKnown(this, device.ip);
+            device.isNew = !known && !Prefs.isTrusted(this, device.ip);
+            if (device.isNew) newDeviceIps.add(device.ip);
+            ips.add(device.ip);
+        }
+        Prefs.markKnown(this, ips);
+    }
+
+    private void updateTrustAlert() {
+        if (newDeviceIps.isEmpty()) {
+            tvTrustAlert.setVisibility(View.GONE);
+            return;
+        }
+        StringBuilder list = new StringBuilder();
+        for (int i = 0; i < newDeviceIps.size() && i < 4; i++) {
+            if (list.length() > 0) list.append(", ");
+            list.append(newDeviceIps.get(i));
+        }
+        if (newDeviceIps.size() > 4) list.append("…");
+        tvTrustAlert.setText(getString(R.string.trust_alert, newDeviceIps.size(), list.toString()));
+        tvTrustAlert.setVisibility(View.VISIBLE);
     }
 
     private void saveReport(final ScanReport report) {
@@ -473,6 +629,10 @@ public final class MainActivity extends Activity {
                 return Long.compare(SubnetMath.ipToLong(a.ip), SubnetMath.ipToLong(b.ip));
             }
         });
+        for (Device device : sorted) {
+            device.customName = Prefs.getNameAlias(this, device.ip);
+            device.trusted = Prefs.isTrusted(this, device.ip);
+        }
         deviceAdapter.setItems(sorted);
         tvDeviceCount.setText(String.valueOf(sorted.size()));
         emptyState.setVisibility(sorted.isEmpty() ? View.VISIBLE : View.GONE);
@@ -480,14 +640,20 @@ public final class MainActivity extends Activity {
 
     private void showPage(int index) {
         pageRed.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
-        pageHistory.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
-        pageSettings.setVisibility(index == 2 ? View.VISIBLE : View.GONE);
+        pageWifi.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
+        pageHistory.setVisibility(index == 2 ? View.VISIBLE : View.GONE);
+        pageSettings.setVisibility(index == 3 ? View.VISIBLE : View.GONE);
         int active = getColor(R.color.primary);
         int inactive = getColor(R.color.text_dim);
         tvNavRed.setTextColor(index == 0 ? active : inactive);
-        tvNavHistory.setTextColor(index == 1 ? active : inactive);
-        tvNavSettings.setTextColor(index == 2 ? active : inactive);
-        if (index == 1) loadHistory();
+        tvNavWifi.setTextColor(index == 1 ? active : inactive);
+        tvNavHistory.setTextColor(index == 2 ? active : inactive);
+        tvNavSettings.setTextColor(index == 3 ? active : inactive);
+        if (index == 1) {
+            loadWifiCurrent();
+            refreshWifiResults();
+        }
+        if (index == 2) loadHistory();
     }
 
     private void loadHistory() {
@@ -581,7 +747,20 @@ public final class MainActivity extends Activity {
         super.onResume();
         loadNetworkInfo();
         renderDevices();
+        loadWifiCurrent();
         if (currentReport != null) updateStats(currentReport);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (wifiScanReceiver != null) {
+            try {
+                unregisterReceiver(wifiScanReceiver);
+            } catch (IllegalArgumentException ignored) {
+            }
+            wifiScanReceiver = null;
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -595,6 +774,7 @@ public final class MainActivity extends Activity {
             }
         }
         loadNetworkInfo();
+        refreshWifiResults();
     }
 
     private void toast(String message) {

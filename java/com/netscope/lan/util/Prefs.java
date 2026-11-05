@@ -5,6 +5,9 @@ import android.content.SharedPreferences;
 
 import com.netscope.lan.core.model.ScanConfig;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public final class Prefs {
     private static final String NAME = "netscope";
     private static final String LEGAL = "legal_accepted";
@@ -16,6 +19,9 @@ public final class Prefs {
     private static final String REVERSE_DNS = "reverse_dns";
     private static final String DEV_MODE = "dev_mode";
     private static final String MAX_HOSTS = "max_hosts";
+    private static final String TRUSTED = "trusted_devices";
+    private static final String KNOWN = "known_devices";
+    private static final String NAME_PREFIX = "name_";
 
     private Prefs() {}
 
@@ -93,6 +99,38 @@ public final class Prefs {
 
     public static void setMaxHosts(Context context, int value) {
         prefs(context).edit().putInt(MAX_HOSTS, value).apply();
+    }
+
+    public static boolean isTrusted(Context context, String ip) {
+        return prefs(context).getStringSet(TRUSTED, new HashSet<String>()).contains(ip);
+    }
+
+    public static void setTrusted(Context context, String ip, boolean trusted) {
+        Set<String> values = new HashSet<>(prefs(context).getStringSet(TRUSTED, new HashSet<String>()));
+        if (trusted) values.add(ip);
+        else values.remove(ip);
+        prefs(context).edit().putStringSet(TRUSTED, values).apply();
+    }
+
+    public static boolean isKnown(Context context, String ip) {
+        return prefs(context).getStringSet(KNOWN, new HashSet<String>()).contains(ip);
+    }
+
+    public static void markKnown(Context context, Iterable<String> ips) {
+        Set<String> values = new HashSet<>(prefs(context).getStringSet(KNOWN, new HashSet<String>()));
+        for (String ip : ips) if (ip != null && !ip.isEmpty()) values.add(ip);
+        prefs(context).edit().putStringSet(KNOWN, values).apply();
+    }
+
+    public static String getNameAlias(Context context, String ip) {
+        return prefs(context).getString(NAME_PREFIX + ip, "");
+    }
+
+    public static void setNameAlias(Context context, String ip, String name) {
+        SharedPreferences.Editor editor = prefs(context).edit();
+        if (name == null || name.trim().isEmpty()) editor.remove(NAME_PREFIX + ip);
+        else editor.putString(NAME_PREFIX + ip, name.trim());
+        editor.apply();
     }
 
     public static ScanConfig scanConfig(Context context) {

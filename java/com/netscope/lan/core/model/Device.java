@@ -8,9 +8,17 @@ import java.util.Set;
 public final class Device {
     public final String ip;
     public String hostname = "";
+    public String customName = "";
+    public boolean trusted;
+    public boolean isNew;
     public String vendor = "";
     public String type = "unknown";
     public String typeLabel = "Dispositivo";
+    public String osGuess = "";
+    public String server = "";
+    public String httpTitle = "";
+    public String tls = "";
+    public final Set<String> services = new LinkedHashSet<>();
     public long latencyMs = -1;
     public boolean gateway;
     public boolean self;
@@ -76,6 +84,7 @@ public final class Device {
     }
 
     public String displayName() {
+        if (customName != null && customName.length() > 0) return customName;
         if (hostname != null && hostname.length() > 0) return hostname;
         if (self) return "Este dispositivo";
         if (gateway) return "Puerta de enlace";

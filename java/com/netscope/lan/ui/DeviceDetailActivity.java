@@ -57,6 +57,11 @@ public final class DeviceDetailActivity extends Activity {
     private TextView tvDetailLatency;
     private TextView tvDetailSources;
     private TextView tvDetailPortSummary;
+    private TextView tvDetailOs;
+    private TextView tvDetailServer;
+    private TextView tvDetailHttpTitle;
+    private TextView tvDetailTls;
+    private TextView tvDetailServices;
     private TextView tvPortStatus;
     private TextView tvOpenCount;
     private TextView tvNoPorts;
@@ -71,6 +76,8 @@ public final class DeviceDetailActivity extends Activity {
     private Button btnPresetCustom;
     private Button btnCustomScan;
     private Button btnStopPorts;
+    private Button btnRename;
+    private Button btnTrust;
     private EditText etCustomPorts;
 
     private boolean scanning;
@@ -91,6 +98,8 @@ public final class DeviceDetailActivity extends Activity {
         device = report == null ? null : report.findDevice(ip);
         if (device == null) device = restoreDevice(ip);
         if (report == null) report = new ScanReport();
+        device.customName = Prefs.getNameAlias(this, device.ip);
+        device.trusted = Prefs.isTrusted(this, device.ip);
 
         bindViews();
         setupActions();
@@ -138,6 +147,11 @@ public final class DeviceDetailActivity extends Activity {
         tvDetailLatency = findViewById(R.id.tvDetailLatency);
         tvDetailSources = findViewById(R.id.tvDetailSources);
         tvDetailPortSummary = findViewById(R.id.tvDetailPortSummary);
+        tvDetailOs = findViewById(R.id.tvDetailOs);
+        tvDetailServer = findViewById(R.id.tvDetailServer);
+        tvDetailHttpTitle = findViewById(R.id.tvDetailHttpTitle);
+        tvDetailTls = findViewById(R.id.tvDetailTls);
+        tvDetailServices = findViewById(R.id.tvDetailServices);
         tvPortStatus = findViewById(R.id.tvPortStatus);
         tvOpenCount = findViewById(R.id.tvOpenCount);
         tvNoPorts = findViewById(R.id.tvNoPorts);
@@ -152,6 +166,8 @@ public final class DeviceDetailActivity extends Activity {
         btnPresetCustom = findViewById(R.id.btnPresetCustom);
         btnCustomScan = findViewById(R.id.btnCustomScan);
         btnStopPorts = findViewById(R.id.btnStopPorts);
+        btnRename = findViewById(R.id.btnRename);
+        btnTrust = findViewById(R.id.btnTrust);
         etCustomPorts = findViewById(R.id.etCustomPorts);
         portGrid = findViewById(R.id.portGrid);
     }
@@ -162,6 +178,12 @@ public final class DeviceDetailActivity extends Activity {
         });
         findViewById(R.id.btnExportDevice).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { exportDevice(); }
+        });
+        btnRename.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { showRenameDialog(); }
+        });
+        btnTrust.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { toggleTrust(); }
         });
         btnPresetQuick.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { startPorts(ServiceCatalog.quickPorts()); }
@@ -215,6 +237,66 @@ public final class DeviceDetailActivity extends Activity {
             }
             tvDetailSources.setText(sb.toString());
         }
+        tvDetailOs.setText(orUnknown(device.osGuess));
+        tvDetailServer.setText(orUnknown(device.server));
+        tvDetailHttpTitle.setText(orUnknown(device.httpTitle));
+        tvDetailTls.setText(orUnknown(device.tls));
+        if (device.services.isEmpty()) {
+            tvDetailServices.setText(R.string.intel_unknown);
+        } else {
+            StringBuilder sb = new StringBuilder();
+            for (String service : device.services) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(service);
+            }
+            tvDetailServices.setText(sb.toString());
+        }
+        btnTrust.setText(device.trusted ? R.string.trust_remove : R.string.trust_mark);
+    }
+
+    private String orUnknown(String value) {
+        return value == null || value.isEmpty() ? getString(R.string.intel_unknown) : value;
+    }
+
+    private void showRenameDialog() {
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint(R.string.rename_hint);
+        input.setText(Prefs.getNameAlias(this, device.ip));
+        input.setSelection(input.getText().length());
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.rename_title)
+                .setView(input)
+                .setPositiveButton(R.string.rename_save, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        String value = input.getText().toString().trim();
+                        Prefs.setNameAlias(DeviceDetailActivity.this, device.ip, value);
+                        device.customName = value;
+                        updateDeviceInfo();
+                        toast(getString(R.string.renamed));
+                    }
+                })
+                .setNeutralButton(R.string.rename_clear, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        Prefs.setNameAlias(DeviceDetailActivity.this, device.ip, "");
+                        device.customName = "";
+                        updateDeviceInfo();
+                        toast(getString(R.string.renamed));
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void toggleTrust() {
+        boolean trusted = !Prefs.isTrusted(this, device.ip);
+        Prefs.setTrusted(this, device.ip, trusted);
+        device.trusted = trusted;
+        device.isNew = false;
+        updateDeviceInfo();
+        toast(getString(trusted ? R.string.trust_marked : R.string.trust_removed));
     }
 
     private void renderPorts() {
@@ -302,6 +384,7 @@ public final class DeviceDetailActivity extends Activity {
                         setScanningUi(false);
                         progressPorts.setProgress(100);
                         renderPorts();
+                        updateDeviceInfo();
                         tvPortStatus.setText(getString(R.string.scan_done_ports,
                                 openPorts.size(), Formats.duration(durationMs)));
                     }

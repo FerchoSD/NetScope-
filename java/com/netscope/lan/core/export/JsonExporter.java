@@ -65,6 +65,20 @@ public final class JsonExporter {
         sb.append(indent).append("  \"vendor\": \"").append(esc(device.vendor)).append("\",\n");
         sb.append(indent).append("  \"type\": \"").append(esc(device.type)).append("\",\n");
         sb.append(indent).append("  \"type_label\": \"").append(esc(device.typeLabel)).append("\",\n");
+        sb.append(indent).append("  \"custom_name\": \"").append(esc(device.customName)).append("\",\n");
+        sb.append(indent).append("  \"trusted\": ").append(device.trusted).append(",\n");
+        sb.append(indent).append("  \"is_new\": ").append(device.isNew).append(",\n");
+        sb.append(indent).append("  \"os_guess\": \"").append(esc(device.osGuess)).append("\",\n");
+        sb.append(indent).append("  \"server\": \"").append(esc(device.server)).append("\",\n");
+        sb.append(indent).append("  \"http_title\": \"").append(esc(device.httpTitle)).append("\",\n");
+        sb.append(indent).append("  \"tls\": \"").append(esc(device.tls)).append("\",\n");
+        sb.append(indent).append("  \"services\": [");
+        int s = 0;
+        for (String service : device.services) {
+            if (s++ > 0) sb.append(", ");
+            sb.append('"').append(esc(service)).append('"');
+        }
+        sb.append("],\n");
         sb.append(indent).append("  \"latency_ms\": ").append(device.latencyMs < 0 ? "null" : String.valueOf(device.latencyMs)).append(",\n");
         sb.append(indent).append("  \"gateway\": ").append(device.gateway).append(",\n");
         sb.append(indent).append("  \"sources\": [");

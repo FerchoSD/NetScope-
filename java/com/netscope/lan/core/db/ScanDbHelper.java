@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class ScanDbHelper extends SQLiteOpenHelper {
     private static final String NAME = "netscope.db";
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     public ScanDbHelper(Context context) {
         super(context, NAME, null, VERSION);
@@ -29,7 +29,8 @@ public final class ScanDbHelper extends SQLiteOpenHelper {
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "scan_id INTEGER NOT NULL REFERENCES scans(id) ON DELETE CASCADE," +
                 "ip TEXT NOT NULL, hostname TEXT, vendor TEXT, type TEXT, type_label TEXT," +
-                "latency_ms INTEGER, gateway INTEGER, self INTEGER, open_count INTEGER)");
+                "latency_ms INTEGER, gateway INTEGER, self INTEGER, open_count INTEGER," +
+                "os_guess TEXT, server TEXT, http_title TEXT, tls TEXT, services TEXT)");
         db.execSQL("CREATE INDEX idx_devices_scan ON devices(scan_id)");
         db.execSQL("CREATE TABLE ports (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
@@ -40,9 +41,12 @@ public final class ScanDbHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS ports");
-        db.execSQL("DROP TABLE IF EXISTS devices");
-        db.execSQL("DROP TABLE IF EXISTS scans");
-        onCreate(db);
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE devices ADD COLUMN os_guess TEXT");
+            db.execSQL("ALTER TABLE devices ADD COLUMN server TEXT");
+            db.execSQL("ALTER TABLE devices ADD COLUMN http_title TEXT");
+            db.execSQL("ALTER TABLE devices ADD COLUMN tls TEXT");
+            db.execSQL("ALTER TABLE devices ADD COLUMN services TEXT");
+        }
     }
 }

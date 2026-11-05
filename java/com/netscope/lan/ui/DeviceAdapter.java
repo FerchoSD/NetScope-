@@ -20,12 +20,14 @@ public final class DeviceAdapter {
         void onDeviceClick(Device device);
     }
 
+    private final Context context;
     private final LayoutInflater inflater;
     private final LinearLayout container;
     private final OnDeviceClickListener listener;
     private List<Device> items = new ArrayList<>();
 
     public DeviceAdapter(Context context, LinearLayout container, OnDeviceClickListener listener) {
+        this.context = context;
         this.inflater = LayoutInflater.from(context);
         this.container = container;
         this.listener = listener;
@@ -58,6 +60,7 @@ public final class DeviceAdapter {
         TextView latency = row.findViewById(R.id.tvDeviceLatency);
         TextView ports = row.findViewById(R.id.tvDevicePorts);
         TextView risk = row.findViewById(R.id.tvDeviceRisk);
+        TextView flag = row.findViewById(R.id.tvDeviceFlag);
 
         icon.setText(HostClassifier.iconLetter(device.type));
         name.setText(device.displayName());
@@ -76,6 +79,18 @@ public final class DeviceAdapter {
             risk.setVisibility(View.VISIBLE);
         } else {
             risk.setVisibility(View.GONE);
+        }
+
+        if (device.isNew) {
+            flag.setText(R.string.trust_chip_new);
+            flag.setTextColor(context.getColor(R.color.warn));
+            flag.setVisibility(View.VISIBLE);
+        } else if (device.trusted) {
+            flag.setText(R.string.trust_chip_trusted);
+            flag.setTextColor(context.getColor(R.color.accent));
+            flag.setVisibility(View.VISIBLE);
+        } else {
+            flag.setVisibility(View.GONE);
         }
     }
 }

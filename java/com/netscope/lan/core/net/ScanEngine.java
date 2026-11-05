@@ -40,6 +40,7 @@ public final class ScanEngine {
     private SsdpDiscovery ssdp;
     private ExecutorService netbiosPool;
     private ExecutorService dnsPool;
+    private ExecutorService probePool;
 
     public ScanEngine(Context context, ScanConfig config, Listener listener) {
         this.context = context.getApplicationContext();
@@ -53,6 +54,7 @@ public final class ScanEngine {
         stopDiscovery();
         if (netbiosPool != null) netbiosPool.shutdownNow();
         if (dnsPool != null) dnsPool.shutdownNow();
+        if (probePool != null) probePool.shutdownNow();
     }
 
     public void run() {
@@ -109,6 +111,7 @@ public final class ScanEngine {
                     });
 
             if (!cancelled.get() && config.reverseDns) resolveNames();
+            if (!cancelled.get()) probeWebInfo();
             listener.onStage("Identificando servicios…");
             stopDiscovery();
             finish(start);
@@ -171,9 +174,12 @@ public final class ScanEngine {
                 if (finished.get() || cancelled.get() || !accept(ip)) return;
                 Device device = merge(ip, "mDNS");
                 if (device.hostname.isEmpty() && name != null && !name.isEmpty()) device.hostname = name;
+                String label = serviceLabel(type);
+                if (!device.services.contains(label)) {
+                    synchronized (lock) { device.services.add(label); }
+                }
                 if (port > 0) {
-                    String hint = type == null ? "mDNS" : type.replace("_", "").replace(".", "");
-                    addDetectedPort(device, port, hint);
+                    addDetectedPort(device, port, label);
                 }
                 emit(device);
             });
@@ -187,6 +193,9 @@ public final class ScanEngine {
                 String maker = (vendor == null ? "" : vendor) + (model == null ? "" : " " + model);
                 maker = maker.trim();
                 if (device.vendor.isEmpty() && !maker.isEmpty()) device.vendor = maker;
+                if (!device.services.contains("UPnP")) {
+                    synchronized (lock) { device.services.add("UPnP"); }
+                }
                 if (location != null) {
                     try {
                         int port = URI.create(location).getPort();
@@ -265,5 +274,76 @@ public final class ScanEngine {
         }
         dnsPool.shutdownNow();
         dnsPool = null;
+    }
+
+    private void probeWebInfo() {
+        List<Device> targets = new ArrayList<>();
+        List<List<PortResult>> ports = new ArrayList<>();
+        synchronized (lock) {
+            for (Device device : report.devices) {
+                if (targets.size() >= 48) break;
+                if (!hasWebPort(device)) continue;
+                targets.add(device);
+                ports.add(new ArrayList<>(device.openPorts));
+            }
+        }
+        if (targets.isEmpty()) return;
+        listener.onStage("Recopilando información…");
+        probePool = Executors.newFixedThreadPool(6, r -> {
+            Thread t = new Thread(r, "netscope-probe");
+            t.setDaemon(true);
+            return t;
+        });
+        List<Future<DeviceProbe.Info>> futures = new ArrayList<>();
+        for (int i = 0; i < targets.size(); i++) {
+            final String ip = targets.get(i).ip;
+            final List<PortResult> open = ports.get(i);
+            futures.add(probePool.submit(() -> DeviceProbe.probe(ip, open, 700)));
+        }
+        long deadline = System.currentTimeMillis() + 8000;
+        for (int i = 0; i < targets.size(); i++) {
+            if (cancelled.get() || finished.get()) break;
+            Device device = targets.get(i);
+            try {
+                long wait = Math.max(50, deadline - System.currentTimeMillis());
+                DeviceProbe.Info info = futures.get(i).get(wait, TimeUnit.MILLISECONDS);
+                if (info == null || !info.found()) continue;
+                synchronized (lock) {
+                    device.httpTitle = info.httpTitle;
+                    device.server = info.server;
+                    device.tls = info.tls;
+                    if (device.hostname.isEmpty() && !info.httpTitle.isEmpty()) {
+                        device.hostname = deriveName(info.httpTitle);
+                    }
+                    if (!device.sources.contains("HTTP")) device.sources.add("HTTP");
+                }
+                emit(device);
+            } catch (Exception e) {
+                futures.get(i).cancel(true);
+            }
+        }
+        probePool.shutdownNow();
+        probePool = null;
+    }
+
+    private static boolean hasWebPort(Device device) {
+        for (PortResult port : device.openPorts) {
+            if (ServiceCatalog.isHttp(port.port) || DeviceProbe.isTlsPort(port.port)) return true;
+        }
+        return false;
+    }
+
+    private static String serviceLabel(String type) {
+        if (type == null || type.isEmpty()) return "";
+        String label = type.startsWith("_") ? type.substring(1) : type;
+        int dot = label.indexOf('.');
+        if (dot > 0) label = label.substring(0, dot);
+        return label;
+    }
+
+    private static String deriveName(String title) {
+        String cleaned = title.replaceAll("\\s+", " ").trim();
+        if (cleaned.length() > 48) cleaned = cleaned.substring(0, 48).trim();
+        return cleaned;
     }
 }

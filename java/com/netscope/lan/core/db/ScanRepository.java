@@ -60,6 +60,11 @@ public final class ScanRepository {
                 values.put("gateway", device.gateway ? 1 : 0);
                 values.put("self", device.self ? 1 : 0);
                 values.put("open_count", device.openPortCount());
+                values.put("os_guess", device.osGuess);
+                values.put("server", device.server);
+                values.put("http_title", device.httpTitle);
+                values.put("tls", device.tls);
+                values.put("services", join(device.services));
                 long deviceId = db.insertOrThrow("devices", null, values);
                 for (PortResult port : device.openPorts) {
                     ContentValues p = new ContentValues();
@@ -139,6 +144,13 @@ public final class ScanRepository {
                 device.latencyMs = devices.getLong(devices.getColumnIndexOrThrow("latency_ms"));
                 device.gateway = devices.getInt(devices.getColumnIndexOrThrow("gateway")) == 1;
                 device.self = devices.getInt(devices.getColumnIndexOrThrow("self")) == 1;
+                device.osGuess = safe(devices, "os_guess");
+                device.server = safe(devices, "server");
+                device.httpTitle = safe(devices, "http_title");
+                device.tls = safe(devices, "tls");
+                for (String service : safe(devices, "services").split(",")) {
+                    if (!service.trim().isEmpty()) device.services.add(service.trim());
+                }
                 Cursor ports = db.query("ports", null, "device_id=?",
                         new String[]{String.valueOf(deviceId)}, null, null, "port ASC");
                 try {
@@ -197,5 +209,15 @@ public final class ScanRepository {
         int index = cursor.getColumnIndex(column);
         if (index < 0 || cursor.isNull(index)) return "";
         return cursor.getString(index);
+    }
+
+    private static String join(Iterable<String> values) {
+        StringBuilder sb = new StringBuilder();
+        for (String value : values) {
+            if (value == null || value.trim().isEmpty()) continue;
+            if (sb.length() > 0) sb.append(',');
+            sb.append(value.trim());
+        }
+        return sb.toString();
     }
 }
