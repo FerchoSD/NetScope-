@@ -1,0 +1,9 @@
+tools/
+dist/
+keystore/
+*.apk
+*.keystore
+*.jks
+.gradle/
+build/
+.tmp/
