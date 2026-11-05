@@ -334,11 +334,16 @@ public final class MainActivity extends Activity {
         if (!current.bssid.isEmpty()) meta.append(" · ").append(current.bssid);
         meta.append("\n").append(getString(R.string.distance)).append(": ")
                 .append(DistanceEstimator.distanceLabel(current.rssi, current.frequency));
+        NetworkInfoProvider.Snapshot snapshot = NetworkInfoProvider.get(this);
+        if (!snapshot.localIp.isEmpty()) {
+            meta.append("\nIP ").append(snapshot.localIp).append(" · ").append(snapshot.cidr());
+        }
         tvWifiCurrentMeta.setText(meta.toString());
         tvWifiCurrentSecurity.setText(current.security);
     }
 
     private void showWifiDialog(WifiScanner.Network network) {
+        NetworkInfoProvider.Snapshot snapshot = NetworkInfoProvider.get(this);
         StringBuilder message = new StringBuilder();
         message.append("BSSID: ").append(network.bssid.isEmpty() ? "—" : network.bssid).append("\n");
         message.append("Canal: ").append(network.channel > 0 ? String.valueOf(network.channel) : "—")
@@ -350,11 +355,29 @@ public final class MainActivity extends Activity {
         message.append(getString(R.string.distance)).append(": ")
                 .append(DistanceEstimator.distanceLabel(network.rssi, network.frequency)).append("\n");
         message.append("Estado: ").append(network.connected ? "Conectada" : "Disponible");
-        new AlertDialog.Builder(this)
+        if (network.connected && !snapshot.localIp.isEmpty()) {
+            message.append("\n\n").append(getString(R.string.wifi_local_network)).append(":\n");
+            message.append("IP local: ").append(snapshot.localIp).append("\n");
+            message.append("Rango: ").append(snapshot.cidr()).append("\n");
+            message.append("Máscara: ").append(snapshot.netmask.isEmpty() ? "—" : snapshot.netmask).append("\n");
+            message.append("Gateway: ").append(snapshot.gateway.isEmpty() ? "—" : snapshot.gateway).append("\n");
+            message.append("DNS: ").append(snapshot.dns.isEmpty() ? "—" : snapshot.dns);
+        } else {
+            message.append("\n\n").append(getString(R.string.wifi_ip_unavailable));
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(network.ssid)
                 .setMessage(message.toString())
-                .setPositiveButton(R.string.close, null)
-                .show();
+                .setPositiveButton(R.string.close, null);
+        if (network.connected && snapshot.scannable) {
+            builder.setNeutralButton(R.string.wifi_scan_this_network, new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface dialog, int which) {
+                    showPage(0);
+                    startNetworkScan();
+                }
+            });
+        }
+        builder.show();
     }
 
     private void setupSettings() {
