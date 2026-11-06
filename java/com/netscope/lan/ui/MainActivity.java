@@ -33,6 +33,7 @@ import com.netscope.lan.core.export.CsvExporter;
 import com.netscope.lan.core.export.DownloadWriter;
 import com.netscope.lan.core.export.JsonExporter;
 import com.netscope.lan.core.model.Device;
+import com.netscope.lan.core.model.PortResult;
 import com.netscope.lan.core.model.ScanDiff;
 import com.netscope.lan.core.model.ScanReport;
 import com.netscope.lan.core.net.DistanceEstimator;
@@ -571,11 +572,36 @@ public final class MainActivity extends Activity {
         if (report.cancelled) {
             tvStage.setText(R.string.scan_cancelled_short);
         } else {
-            tvStage.setText(getString(R.string.device_summary, report.devices.size(),
-                    report.totalOpenPorts(), Formats.duration(report.durationMs)));
+            String ports = uniquePorts(report, 8);
+            if (ports.isEmpty()) {
+                tvStage.setText(getString(R.string.device_summary, report.devices.size(),
+                        report.totalOpenPorts(), Formats.duration(report.durationMs)));
+            } else {
+                tvStage.setText(getString(R.string.device_summary_ports, report.devices.size(),
+                        report.totalOpenPorts(), ports, Formats.duration(report.durationMs)));
+            }
             toast(getString(R.string.scan_complete));
         }
         saveReport(report);
+    }
+
+    private static String uniquePorts(ScanReport report, int max) {
+        java.util.TreeSet<Integer> ports = new java.util.TreeSet<>();
+        for (Device device : report.devices) {
+            for (PortResult result : device.openPorts) ports.add(result.port);
+        }
+        StringBuilder sb = new StringBuilder();
+        int shown = 0;
+        for (Integer port : ports) {
+            if (shown >= max) {
+                sb.append("…+").append(ports.size() - shown);
+                break;
+            }
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(port);
+            shown++;
+        }
+        return sb.toString();
     }
 
     private void detectNewDevices(ScanReport report) {

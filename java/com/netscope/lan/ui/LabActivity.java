@@ -30,6 +30,7 @@ import com.netscope.lan.core.net.ServiceCatalog;
 import com.netscope.lan.core.net.TargetSpec;
 import com.netscope.lan.core.net.WebContentScanner;
 import com.netscope.lan.core.net.WifiScanner;
+import com.netscope.lan.util.Formats;
 import com.netscope.lan.util.Prefs;
 
 import java.net.InetAddress;
@@ -442,8 +443,9 @@ public final class LabActivity extends Activity {
             @Override public void onDevice(final Device device) {
                 uiPost(token, new Runnable() {
                     @Override public void run() {
-                        append("· " + device.ip + " · " + device.displayName()
-                                + " · " + device.openPortCount() + " puertos abiertos");
+                        String portsLine = Formats.ports(device.openPorts, 12);
+                        if (portsLine.isEmpty()) portsLine = getString(R.string.no_open_ports_short);
+                        append("· " + device.ip + " · " + device.displayName() + " · " + portsLine);
                     }
                 });
             }

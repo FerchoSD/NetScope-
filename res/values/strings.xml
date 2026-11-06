@@ -131,6 +131,8 @@
     <string name="status_scanning">ESCANEANDO</string>
     <string name="stage_scanning">Escaneando la red…</string>
     <string name="device_summary">%1$d dispositivos · %2$d puertos abiertos · %3$s</string>
+    <string name="device_summary_ports">%1$d dispositivos · %2$d puertos abiertos (%3$s) · %4$s</string>
+    <string name="no_open_ports_short">sin puertos abiertos</string>
     <string name="diff_summary">Cambios: %1$d nuevos · %2$d desaparecidos · %3$d con puertos distintos</string>
     <string name="history_detail_line">Mostrando escaneo del %1$s</string>
     <string name="no_report_yet">Todavía no hay un escaneo para exportar.</string>

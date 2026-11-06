@@ -59,6 +59,7 @@ public final class DeviceAdapter {
         TextView type = row.findViewById(R.id.tvDeviceType);
         TextView latency = row.findViewById(R.id.tvDeviceLatency);
         TextView ports = row.findViewById(R.id.tvDevicePorts);
+        TextView portList = row.findViewById(R.id.tvDevicePortList);
         TextView risk = row.findViewById(R.id.tvDeviceRisk);
         TextView flag = row.findViewById(R.id.tvDeviceFlag);
 
@@ -68,6 +69,14 @@ public final class DeviceAdapter {
         type.setText(device.typeLabel);
         latency.setText(Formats.latency(device.latencyMs));
         ports.setText(String.valueOf(device.openPortCount()));
+
+        String portLine = Formats.ports(device.openPorts, 5);
+        if (portLine.isEmpty()) {
+            portList.setVisibility(View.GONE);
+        } else {
+            portList.setText(portLine);
+            portList.setVisibility(View.VISIBLE);
+        }
 
         int level = 0;
         for (PortResult result : device.openPorts) level = Math.max(level, result.risk);
