@@ -309,7 +309,6 @@
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
                     android:singleLine="true"
-                    android:text="127.0.0.1:5555"
                     android:textColor="@color/text"
                     android:textColorHint="@color/text_faint"
                     android:textSize="14sp" />
@@ -361,6 +360,68 @@
                         android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnAdbShell"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_button_ghost"
+                    android:elevation="0dp"
+                    android:text="@string/lab_adb_shell_open"
+                    android:textAllCaps="false"
+                    android:textColor="@color/accent"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/rowAdbInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/etAdbInput"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_input"
+                        android:hint="@string/lab_adb_input_hint"
+                        android:imeOptions="actionSend"
+                        android:inputType="text"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:singleLine="true"
+                        android:textColor="@color/text"
+                        android:textColorHint="@color/text_faint"
+                        android:textSize="14sp" />
+
+                    <Button
+                        android:id="@+id/btnAdbSend"
+                        android:layout_width="wrap_content"
+                        android:layout_height="46dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_button_primary"
+                        android:elevation="0dp"
+                        android:minWidth="76dp"
+                        android:text="@string/lab_adb_send"
+                        android:textAllCaps="false"
+                        android:textColor="@color/bg"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvAdbKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_faint"
+                    android:textSize="9sp"
+                    android:visibility="gone" />
 
                 <TextView
                     android:layout_width="match_parent"

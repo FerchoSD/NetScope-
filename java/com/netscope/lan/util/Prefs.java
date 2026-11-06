@@ -22,6 +22,7 @@ public final class Prefs {
     private static final String TRUSTED = "trusted_devices";
     private static final String KNOWN = "known_devices";
     private static final String NAME_PREFIX = "name_";
+    private static final String ADB_TARGET = "adb_target";
 
     private Prefs() {}
 
@@ -133,8 +134,17 @@ public final class Prefs {
         editor.apply();
     }
 
-    public static ScanConfig scanConfig(Context context) {
-        ScanConfig config = new ScanConfig();
+    public static String getAdbTarget(Context context) {
+        return prefs(context).getString(ADB_TARGET, "127.0.0.1:5555");
+    }
+
+    public static void setAdbTarget(Context context, String value) {
+        String target = value == null ? "" : value.trim();
+        if (target.isEmpty()) prefs(context).edit().remove(ADB_TARGET).apply();
+        else prefs(context).edit().putString(ADB_TARGET, target).apply();
+    }
+
+    public static ScanConfig scanConfig(Context context) {        ScanConfig config = new ScanConfig();
         config.timeoutMs = getTimeoutMs(context);
         config.concurrency = getConcurrency(context);
         config.maxHosts = getMaxHosts(context);

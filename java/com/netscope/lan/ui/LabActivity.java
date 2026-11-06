@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
@@ -60,8 +61,10 @@ public final class LabActivity extends Activity {
     private EditText etPort;
     private EditText etAdbTarget;
     private EditText etAdbCommand;
+    private EditText etAdbInput;
     private Switch switchTls;
     private TextView tvLabResolved;
+    private TextView tvAdbKey;
     private Button btnPickDevice;
     private Button btnDiscoverPorts;
     private Button btnAuditHttp;
@@ -71,10 +74,13 @@ public final class LabActivity extends Activity {
     private Button btnProximity;
     private Button btnAdbTest;
     private Button btnAdbRun;
+    private Button btnAdbShell;
+    private Button btnAdbSend;
     private Button btnLabCancel;
     private ProgressBar progressLab;
     private TextView tvLabOutput;
     private ScrollView scrollLab;
+    private View rowAdbInput;
 
     private ScanController controller;
     private volatile boolean cancelled;
@@ -82,6 +88,7 @@ public final class LabActivity extends Activity {
     private volatile WebContentScanner activeScanner;
     private volatile PortScanner activePortScanner;
     private volatile AdbClient activeAdb;
+    private AdbClient.ShellSession activeShell;
 
     private interface TargetAction {
         void run(Target target, int token);
@@ -104,6 +111,26 @@ public final class LabActivity extends Activity {
         }
         btnWordlist.setText(getString(R.string.lab_wordlist, WebContentScanner.wordlistSize()));
         tvLabResolved.setText(getString(R.string.lab_resolved_empty));
+        etAdbTarget.setText(Prefs.getAdbTarget(this));
+        loadAdbFingerprint();
+    }
+
+    private void loadAdbFingerprint() {
+        executor.execute(new Runnable() {
+            @Override public void run() {
+                final String fingerprint = AdbClient.keyFingerprint(LabActivity.this);
+                ui.post(new Runnable() {
+                    @Override public void run() {
+                        if (fingerprint.isEmpty()) {
+                            tvAdbKey.setVisibility(View.GONE);
+                        } else {
+                            tvAdbKey.setText(getString(R.string.lab_adb_key_saved, fingerprint));
+                            tvAdbKey.setVisibility(View.VISIBLE);
+                        }
+                    }
+                });
+            }
+        });
     }
 
     private void bindViews() {
@@ -111,8 +138,10 @@ public final class LabActivity extends Activity {
         etPort = findViewById(R.id.etLabPort);
         etAdbTarget = findViewById(R.id.etAdbTarget);
         etAdbCommand = findViewById(R.id.etAdbCommand);
+        etAdbInput = findViewById(R.id.etAdbInput);
         switchTls = findViewById(R.id.switchLabTls);
         tvLabResolved = findViewById(R.id.tvLabResolved);
+        tvAdbKey = findViewById(R.id.tvAdbKey);
         btnPickDevice = findViewById(R.id.btnPickDevice);
         btnDiscoverPorts = findViewById(R.id.btnDiscoverPorts);
         btnAuditHttp = findViewById(R.id.btnAuditHttp);
@@ -122,10 +151,13 @@ public final class LabActivity extends Activity {
         btnProximity = findViewById(R.id.btnProximity);
         btnAdbTest = findViewById(R.id.btnAdbTest);
         btnAdbRun = findViewById(R.id.btnAdbRun);
+        btnAdbShell = findViewById(R.id.btnAdbShell);
+        btnAdbSend = findViewById(R.id.btnAdbSend);
         btnLabCancel = findViewById(R.id.btnLabCancel);
         progressLab = findViewById(R.id.progressLab);
         tvLabOutput = findViewById(R.id.tvLabOutput);
         scrollLab = findViewById(R.id.scrollLab);
+        rowAdbInput = findViewById(R.id.rowAdbInput);
     }
 
     private void setupActions() {
@@ -159,6 +191,21 @@ public final class LabActivity extends Activity {
         btnAdbRun.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 runAdb(etAdbCommand.getText().toString().trim());
+            }
+        });
+        btnAdbShell.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { toggleAdbShell(); }
+        });
+        btnAdbSend.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sendAdbLine(); }
+        });
+        etAdbInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override public boolean onEditorAction(TextView v, int actionId, android.view.KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_SEND) {
+                    sendAdbLine();
+                    return true;
+                }
+                return false;
             }
         });
         btnLabCancel.setOnClickListener(new View.OnClickListener() {
@@ -474,6 +521,12 @@ public final class LabActivity extends Activity {
             toast(getString(R.string.lab_adb_empty_command));
             return;
         }
+        AdbClient.ShellSession session = activeShell;
+        if (session != null && session.isOpen()) {
+            append(getString(R.string.lab_adb_shell_sent, command));
+            writeShellLine(command);
+            return;
+        }
         final String host;
         final int port;
         try {
@@ -484,6 +537,7 @@ public final class LabActivity extends Activity {
             toast(getString(R.string.lab_adb_invalid_target));
             return;
         }
+        Prefs.setAdbTarget(this, etAdbTarget.getText().toString().trim());
         final int token = beginTask(getString(R.string.lab_adb_running) + "\n"
                 + host + ":" + port + " → " + command + "\n\n");
         append(getString(R.string.lab_adb_auth_note));
@@ -521,6 +575,142 @@ public final class LabActivity extends Activity {
                     });
                 } finally {
                     activeAdb = null;
+                }
+            }
+        });
+    }
+
+    private void toggleAdbShell() {
+        if (activeShell != null) {
+            closeAdbShell();
+        } else {
+            openAdbShell();
+        }
+    }
+
+    private void openAdbShell() {
+        final String host;
+        final int port;
+        try {
+            TargetSpec spec = TargetSpec.parse(etAdbTarget.getText().toString(), "", false);
+            host = spec.host;
+            port = spec.hasPort() ? spec.port : 5555;
+        } catch (IllegalArgumentException e) {
+            toast(getString(R.string.lab_adb_invalid_target));
+            return;
+        }
+        Prefs.setAdbTarget(this, etAdbTarget.getText().toString().trim());
+        final int token = beginTask(getString(R.string.lab_adb_shell_opening) + "\n"
+                + host + ":" + port + "\n\n");
+        append(getString(R.string.lab_adb_auth_note));
+        final AdbClient client = new AdbClient();
+        activeAdb = client;
+        executor.execute(new Runnable() {
+            @Override public void run() {
+                try {
+                    final AdbClient.ShellSession session = client.openShell(LabActivity.this,
+                            host, port, 90000, new AdbClient.ShellListener() {
+                                @Override public void onOutput(final String text) {
+                                    ui.post(new Runnable() {
+                                        @Override public void run() {
+                                            appendRaw(text.replace("\r\n", "\n").replace('\r', '\n'));
+                                        }
+                                    });
+                                }
+                                @Override public void onClosed() {
+                                    ui.post(new Runnable() {
+                                        @Override public void run() { handleShellClosed(); }
+                                    });
+                                }
+                            });
+                    ui.post(new Runnable() {
+                        @Override public void run() {
+                            activeAdb = null;
+                            if (token != taskToken) {
+                                session.close();
+                                return;
+                            }
+                            if (!session.isOpen()) {
+                                append(getString(R.string.lab_adb_shell_closed));
+                                endTask(token);
+                                return;
+                            }
+                            activeShell = session;
+                            updateShellUi(true);
+                            append(getString(R.string.lab_adb_shell_running));
+                            endTask(token);
+                        }
+                    });
+                } catch (Exception e) {
+                    final String message = e.getMessage() == null
+                            ? e.getClass().getSimpleName() : e.getMessage();
+                    ui.post(new Runnable() {
+                        @Override public void run() {
+                            activeAdb = null;
+                            if (token != taskToken) return;
+                            append(getString(R.string.lab_adb_error, message));
+                            endTask(token);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    private void closeAdbShell() {
+        AdbClient.ShellSession session = activeShell;
+        activeShell = null;
+        updateShellUi(false);
+        if (session != null) session.close();
+        append(getString(R.string.lab_adb_shell_closed));
+    }
+
+    private void handleShellClosed() {
+        if (activeShell == null) return;
+        activeShell = null;
+        updateShellUi(false);
+        append(getString(R.string.lab_adb_shell_closed));
+    }
+
+    private void updateShellUi(boolean open) {
+        rowAdbInput.setVisibility(open ? View.VISIBLE : View.GONE);
+        btnAdbShell.setText(open ? R.string.lab_adb_shell_close : R.string.lab_adb_shell_open);
+        etAdbInput.setText("");
+        if (open) {
+            etAdbInput.requestFocus();
+            btnAdbSend.setEnabled(true);
+        }
+    }
+
+    private void sendAdbLine() {
+        AdbClient.ShellSession session = activeShell;
+        if (session == null || !session.isOpen()) {
+            toast(getString(R.string.lab_adb_shell_required));
+            updateShellUi(false);
+            return;
+        }
+        String line = etAdbInput.getText().toString().trim();
+        if (line.isEmpty()) return;
+        append(getString(R.string.lab_adb_shell_sent, line));
+        etAdbInput.setText("");
+        writeShellLine(line);
+    }
+
+    private void writeShellLine(final String line) {
+        final AdbClient.ShellSession session = activeShell;
+        if (session == null) return;
+        executor.execute(new Runnable() {
+            @Override public void run() {
+                try {
+                    session.write(line + "\n");
+                } catch (Exception e) {
+                    final String message = e.getMessage() == null
+                            ? e.getClass().getSimpleName() : e.getMessage();
+                    ui.post(new Runnable() {
+                        @Override public void run() {
+                            toast(getString(R.string.lab_adb_shell_error, message));
+                        }
+                    });
                 }
             }
         });
@@ -699,6 +889,7 @@ public final class LabActivity extends Activity {
         switchTls.setEnabled(!active);
         etAdbTarget.setEnabled(!active);
         etAdbCommand.setEnabled(!active);
+        etAdbInput.setEnabled(!active && activeShell != null);
         btnPickDevice.setEnabled(!active);
         btnDiscoverPorts.setEnabled(!active);
         btnAuditHttp.setEnabled(!active);
@@ -708,6 +899,8 @@ public final class LabActivity extends Activity {
         btnProximity.setEnabled(!active);
         btnAdbTest.setEnabled(!active);
         btnAdbRun.setEnabled(!active);
+        btnAdbShell.setEnabled(!active);
+        btnAdbSend.setEnabled(!active && activeShell != null);
         btnLabCancel.setVisibility(active ? View.VISIBLE : View.GONE);
         btnLabCancel.setEnabled(active);
         progressLab.setVisibility(active ? View.VISIBLE : View.GONE);
@@ -756,6 +949,9 @@ public final class LabActivity extends Activity {
     protected void onDestroy() {
         cancelled = true;
         taskToken++;
+        AdbClient.ShellSession session = activeShell;
+        activeShell = null;
+        if (session != null) session.close();
         WebContentScanner scanner = activeScanner;
         if (scanner != null) scanner.cancel();
         PortScanner ports = activePortScanner;
